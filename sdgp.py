@@ -4,6 +4,8 @@ import json
 import xlwt
 
 from bs4 import BeautifulSoup
+import pandas as pd
+import openpyxl
 
 
 def request_data(url):
@@ -21,19 +23,22 @@ def request_data(url):
 
 book = xlwt.Workbook(encoding='utf-8', style_compression=0)
 sheet = book.add_sheet('采购项目', cell_overwrite_ok=True)
-sheet.write(0, 0, '序号')
-sheet.write(0, 1, '供应商名称')
-sheet.write(0, 2, '采购项目名称')
-sheet.write(0, 3, '采购人')
-n = 1
-item_name = ""
-purchaser = ""
+sheet.write(0, 0, '公告名称')
+sheet.write(0, 1, '采购项目名称')
+sheet.write(0, 2, '采购人')
+sheet.write(0, 3, '采购详情')
+
+# 定义存储变量
+announcement_name = []
+procurement_item_name = []
+purchaser = []
+details = []
 
 domain = "http://www.ccgp-shandong.gov.cn"
 
 
 def parse_announcement(html):
-    if len(html) < 0:
+    if html is None:
         return []
 
     soup = BeautifulSoup(html, 'lxml')
@@ -49,40 +54,45 @@ def parse_result(html):
     if html is None:
         return
     soup = BeautifulSoup(html, 'lxml')
-    textarea = soup.find(id='textarea')
-    # print(textarea.text)
     title = soup.find('h1', class_="title").text
+    announcement_name.append(title)
     print(title)
-    if "山东正中信息技术股份有限公司" in textarea.text:
-        print(title + "=====> 山东正中信息技术股份有限公司")
-        table = textarea.find_all("td")
-        for item in table:
-            if "采购项目名称" in item.text:
-                global item_name
-                item_name = item.text
-                print("采购项目名称" + item_name)
 
-            if "采购人" in item.text:
-                global purchaser
-                purchaser = item.text
-                print("采购人" + purchaser)
+    table_list = soup.find(id='textarea').find_all("table")
+    td_list = table_list[0].find_all("td")
+    item_name = ""
+    cg = ""
+    for item in td_list:
+        if "项目名称" in item.text:
+            item_name = item.text.strip().split("：")[1]
+            procurement_item_name.append(item_name)
+            print(item_name)
 
-        global n
-        sheet.write(n, 0, n)
-        sheet.write(n, 1, "山东正中信息技术股份有限公司")
-        sheet.write(n, 2, item_name)
-        sheet.write(n, 3, purchaser)
-        n = n + 1
+        if "采购人" in item.text:
+            cg = item.text.strip().split("：")[1].split()[0]
+            purchaser.append(cg)
+            print(cg)
 
-    else:
-        print("==================================")
+        if len(cg) != 0 and len(item_name) != 0:
+            break
+
+    detail_str = "货物服务名称：%s，供应商名称：%s"
+    tr_list = table_list[1].find_all("tr")
+    for index in range(1, len(tr_list)):
+        td_list = tr_list[index].find_all("td")
+        details.append(detail_str % (td_list[1].text.strip(), td_list[2].text.strip()))
+        print(detail_str % (td_list[1].text.strip(), td_list[2].text.strip()))
 
 
-def write_data(item):
-    print('开始写入数据 ====> ' + str(item))
-
-    # with open('book.txt', 'a', encoding='UTF-8') as f:
-    #     f.write(json.dumps(item, ensure_ascii=False) + '\n')
+def write_data():
+    print('开始写入数据 ====> ')
+    data = pd.DataFrame.from_dict(
+        {'公告名称': announcement_name, '采购项目名称': procurement_item_name, '采购人': purchaser, '采购详情': details}
+        , orient='index'
+    )
+    writer = pd.ExcelWriter('采购.xlsx')
+    data.to_excel(writer, '采购数据')
+    writer.save()
 
 
 def main(page):
@@ -91,19 +101,25 @@ def main(page):
         page) + '&grade=province&firstpage=1'
     print('第{}页 ====> '.format(page))
     print(url)
-    # 获取所有公告
+    # 获取所有公告链接
     announcement_html = request_data(url)
     # 解析过滤得到每一条公告的url
     href_list = parse_announcement(announcement_html)
     for href in href_list:
+        # 获取公告内容
         data_html = request_data(href)
+        # 解析内容
         parse_result(data_html)
 
+    write_data()
 
 if __name__ == "__main__":
-    for i in range(100, 150):
+    for i in range(1,2):
         main(i)
     # main(1)
-    book.save('项目.xls')
+    # data_html = request_data("file:///C:/Users/runze/Desktop/test.html")
+    # 解析内容 保存
+    # parse_result(data_html)
+
+    # book.save('项目.xls')
     # https://github.com/wistbean/learn_python3_spider
-    # request_dandan("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listcontnew.jsp?colcode=0302&id=203715338")
