@@ -24,9 +24,12 @@ def request_data(url):
 book = xlwt.Workbook(encoding='utf-8', style_compression=0)
 sheet = book.add_sheet('采购项目', cell_overwrite_ok=True)
 sheet.write(0, 0, '公告名称')
-sheet.write(0, 1, '采购项目名称')
-sheet.write(0, 2, '采购人')
-sheet.write(0, 3, '采购详情')
+sheet.write(0, 2, '采购项目名称')
+sheet.write(0, 3, '采购项目编号')
+sheet.write(0, 4, '采购人')
+sheet.write(0, 5, '成交日期')
+sheet.write(0, 6, '代理机构')
+sheet.write(0, 7, '采购详情')
 
 # 定义存储变量
 announcement_name = []
@@ -63,15 +66,25 @@ def parse_result(html):
     item_name = ""
     cg = ""
     for item in td_list:
-        if "项目名称" in item.text:
-            item_name = item.text.strip().split("：")[1]
-            procurement_item_name.append(item_name)
-            print(item_name)
-
         if "采购人" in item.text:
-            cg = item.text.strip().split("：")[1].split()[0]
-            purchaser.append(cg)
-            print(cg)
+            purchaser = item.text.strip().split("：")[1].split()[0]
+            print(purchaser)
+        
+        if "采购项目名称" in item.text:
+            item_name = item.text.strip().split("：")[1]
+            print(item_name)
+            
+        if "采购项目编号" in item.text:
+            item_sn = item.text.strip().split("：")[1]
+            print(item_sn)
+            
+        if "成交日期" in item.text:
+            item_sn = item.text.strip().split("：")[1]
+            print(item_sn)
+            
+        if "代理机构" in item.text:
+            item_sn = item.text.strip().split("：")[1].split()[0]
+            print(item_sn)
 
         if len(cg) != 0 and len(item_name) != 0:
             break
