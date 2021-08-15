@@ -91,7 +91,7 @@ def write_data(data_):
     print('开始写入数据 ====> ')
     # def create_csv():
     title_data = ['公告名称', '采购项目名称', '采购项目编号', '采购人', '成交日期', '代理机构', '采购详情', "链接地址"]
-    with open('中标项目101-201.csv', 'w', newline='', encoding='utf-8-sig') as csv_file:
+    with open('省结果公告101-201.csv', 'w', newline='', encoding='utf-8-sig') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(title_data)
         for info in data_:
