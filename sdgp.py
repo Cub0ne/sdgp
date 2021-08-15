@@ -1,11 +1,9 @@
+import time
+
 import requests
-import re
-import json
-import xlwt
 
 from bs4 import BeautifulSoup
-import pandas as pd
-import openpyxl
+import csv
 
 
 def request_data(url):
@@ -21,21 +19,8 @@ def request_data(url):
         return None
 
 
-book = xlwt.Workbook(encoding='utf-8', style_compression=0)
-sheet = book.add_sheet('采购项目', cell_overwrite_ok=True)
-sheet.write(0, 0, '公告名称')
-sheet.write(0, 2, '采购项目名称')
-sheet.write(0, 3, '采购项目编号')
-sheet.write(0, 4, '采购人')
-sheet.write(0, 5, '成交日期')
-sheet.write(0, 6, '代理机构')
-sheet.write(0, 7, '采购详情')
-
 # 定义存储变量
-announcement_name = []
-procurement_item_name = []
-purchaser = []
-details = []
+data = []
 
 domain = "http://www.ccgp-shandong.gov.cn"
 
@@ -48,64 +33,71 @@ def parse_announcement(html):
     href_list = soup.select('a[href^="/sdgp2017/site/listcontnew.jsp?colcode=0302&"]')
     urls = []
     for href in href_list:
-        print(domain + href.get('href'))
+        # print(domain + href.get('href'))
         urls.append(domain + href.get('href'))
     return urls
 
 
-def parse_result(html):
+def parse_result(html, href):
+    cache_data = ['', '', '', '', '', '', '', '']
     if html is None:
         return
     soup = BeautifulSoup(html, 'lxml')
     title = soup.find('h1', class_="title").text
-    announcement_name.append(title)
-    print(title)
+    # print(title)
+    cache_data[0] = title
 
     table_list = soup.find(id='textarea').find_all("table")
     td_list = table_list[0].find_all("td")
-    item_name = ""
-    cg = ""
     for item in td_list:
-        if "采购人" in item.text:
-            purchaser = item.text.strip().split("：")[1].split()[0]
-            print(purchaser)
-        
         if "采购项目名称" in item.text:
             item_name = item.text.strip().split("：")[1]
-            print(item_name)
-            
+            cache_data[1] = item_name
+            # print(item_name)
+
         if "采购项目编号" in item.text:
             item_sn = item.text.strip().split("：")[1]
-            print(item_sn)
-            
-        if "成交日期" in item.text:
-            item_sn = item.text.strip().split("：")[1]
-            print(item_sn)
-            
-        if "代理机构" in item.text:
-            item_sn = item.text.strip().split("：")[1].split()[0]
-            print(item_sn)
+            cache_data[2] = item_sn
+            # print(item_sn)
 
-        if len(cg) != 0 and len(item_name) != 0:
-            break
+        if "采购人" in item.text:
+            purchaser = item.text.strip().split("：")[1].split()[0].split(",")[0]
+            cache_data[3] = purchaser
+            # print(purchaser)
+
+        if "成交日期" in item.text:
+            transaction_date = item.text.strip().split("：")[1]
+            cache_data[4] = transaction_date
+            # print(transaction_date)
+
+        if "代理机构" in item.text:
+            agency = item.text.strip().split("：")[1].split()[0]
+            cache_data[5] = agency
+            # print(agency)
 
     detail_str = "货物服务名称：%s，供应商名称：%s"
+    detail = ""
     tr_list = table_list[1].find_all("tr")
     for index in range(1, len(tr_list)):
         td_list = tr_list[index].find_all("td")
-        details.append(detail_str % (td_list[1].text.strip(), td_list[2].text.strip()))
-        print(detail_str % (td_list[1].text.strip(), td_list[2].text.strip()))
+        detail += detail_str % (td_list[1].text.strip(), td_list[2].text.strip()) + "\n"
+        # print(detail)
+    cache_data[6] = detail
+    cache_data[7] = href
+    return cache_data
 
 
-def write_data():
+def write_data(data_):
     print('开始写入数据 ====> ')
-    data = pd.DataFrame.from_dict(
-        {'公告名称': announcement_name, '采购项目名称': procurement_item_name, '采购人': purchaser, '采购详情': details}
-        , orient='index'
-    )
-    writer = pd.ExcelWriter('采购.xlsx')
-    data.to_excel(writer, '采购数据')
-    writer.save()
+    # def create_csv():
+    title_data = ['公告名称', '采购项目名称', '采购项目编号', '采购人', '成交日期', '代理机构', '采购详情', "链接地址"]
+    with open('中标项目101-201.csv', 'w', newline='', encoding='utf-8-sig') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(title_data)
+        for info in data_:
+            writer.writerow(info)
+
+    csv_file.close()
 
 
 def main(page):
@@ -122,17 +114,12 @@ def main(page):
         # 获取公告内容
         data_html = request_data(href)
         # 解析内容
-        parse_result(data_html)
+        data.append(parse_result(data_html, href))
 
-    write_data()
 
 if __name__ == "__main__":
-    for i in range(1,2):
+    for i in range(101, 201):
         main(i)
-    # main(1)
-    # data_html = request_data("file:///C:/Users/runze/Desktop/test.html")
-    # 解析内容 保存
-    # parse_result(data_html)
+        time.sleep(1)
 
-    # book.save('项目.xls')
-    # https://github.com/wistbean/learn_python3_spider
+    write_data(data)
